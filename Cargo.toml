@@ -8,3 +8,7 @@ kzg = { version = "0.1.0", git = "https://github.com/grandinetech/rust-kzg.git" 
 rust-kzg-blst = { version = "0.1.0", git = "https://github.com/grandinetech/rust-kzg.git" }
 thiserror = "1.0.61"
 blst = "0.3.12"
+itertools = "0.13.0"
+hex = "0.4.3"
+sha2 = "0.10.8"
+rand = "0.8.4"
