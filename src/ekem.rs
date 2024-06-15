@@ -107,7 +107,7 @@ mod tests {
             .unwrap();
             let key_dec = ekem_dec(&ct, &hasher, &sign, &opening).unwrap();
             assert_eq!(key_enc, key_dec);
-            println!("idx {} is valid", idx);
+            // println!("idx {} is valid", idx);
         }
     }
 }

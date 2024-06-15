@@ -25,7 +25,7 @@ pub fn pairing(g1s: &[FsG1], g2s: &[FsG2]) -> Result<blst_fp12, Error> {
     Ok(pairing_blst.as_fp12().final_exp())
 }
 
-pub trait HasherFp12ToBytes {
+pub trait HasherFp12ToBytes: Sync {
     fn hash(&self, input: &blst_fp12) -> Result<Vec<u8>, Error>;
 }
 
@@ -44,7 +44,7 @@ impl Sha256HasherFp12ToBytes {
     }
 }
 
-pub trait SymEncScheme {
+pub trait SymEncScheme: Sync {
     fn enc(&self, key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
     fn dec(&self, key: &[u8], ct: &[u8]) -> Result<Vec<u8>, Error>;
 }
