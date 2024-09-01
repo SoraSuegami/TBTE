@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kzg = { version = "0.1.0", git = "https://github.com/grandinetech/rust-kzg.git" }
-rust-kzg-blst = { version = "0.1.0", git = "https://github.com/grandinetech/rust-kzg.git" }
+kzg = { version = "0.1.0", git = "https://github.com/SoraSuegami/rust-kzg.git" }
+rust-kzg-blst = { version = "0.1.0", git = "https://github.com/SoraSuegami/rust-kzg.git" }
 thiserror = "1.0.61"
 blst = "0.3.12"
 itertools = "0.13.0"

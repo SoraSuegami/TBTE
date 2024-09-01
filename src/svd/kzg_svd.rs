@@ -5,9 +5,11 @@ use blst::{
 };
 use itertools::Itertools;
 pub use kzg::eip_4844::FIELD_ELEMENTS_PER_BLOB;
-use kzg::{eip_4844::*, FFTSettings, Fr, G1Mul, G2Mul, KZGSettings, PairingVerify, G1, G2};
+use kzg::{
+    eip_4844::*, FFTSettings, Fr, G1LinComb, G1Mul, G2Mul, KZGSettings, PairingVerify, Poly, G1, G2,
+};
 use kzg_settings::FsKZGSettings;
-use rust_kzg_blst::types::{fr::*, g1::*, g2::*, *};
+use rust_kzg_blst::types::{fr::*, g1::*, g2::*, poly::*, *};
 use rust_kzg_blst::{consts::*, eip_4844::*, utils::*};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -82,8 +84,15 @@ impl SvdScheme for KZGSvdScheme {
         crs: &Self::CRS,
         signing_targets: &[Self::SigningTarget],
     ) -> Result<Self::SvdDigest, Error> {
-        blob_to_kzg_commitment_rust(&signing_targets.into_iter().map(|v| v.0).collect_vec(), crs)
-            .map_err(|e| Error::GenDigestError(e.to_string()))
+        let polynomial: FsPoly =
+            blob_to_polynomial_generic_len(&signing_targets.into_iter().map(|v| v.0).collect_vec())
+                .map_err(|e| Error::GenDigestError(e.to_string()))?;
+        Ok(FsG1::g1_lincomb(
+            crs.get_g1_secret(),
+            polynomial.get_coeffs(),
+            signing_targets.len(),
+            crs.get_precomputation(),
+        ))
     }
 
     fn sign(
@@ -107,7 +116,7 @@ impl SvdScheme for KZGSvdScheme {
         index: u64,
     ) -> Result<Self::Opening, Error> {
         let roots_of_unity = crs.get_fft_settings().get_roots_of_unity();
-        let (proof, _) = compute_kzg_proof_rust(
+        let (proof, _) = compute_kzg_proof_rust_generic_len(
             &signing_targets.into_iter().map(|v| v.0).collect_vec(),
             &roots_of_unity[index as usize],
             crs,

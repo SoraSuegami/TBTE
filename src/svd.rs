@@ -39,7 +39,6 @@ pub trait SvdScheme {
         signing_targets: &[Self::SigningTarget],
         index: u64,
     ) -> Result<Self::Opening, Error>;
-
     fn verify(
         &self,
         crs: &Self::CRS,

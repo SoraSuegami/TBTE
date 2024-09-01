@@ -3,11 +3,7 @@ use blst::{
     blst_fp12, blst_hash_to_g1, blst_p1_affine, blst_p1_cneg, blst_p1_to_affine, blst_p2_affine,
     blst_p2_to_affine, Pairing,
 };
-pub use kzg::eip_4844::FIELD_ELEMENTS_PER_BLOB;
-use kzg::{eip_4844::*, FFTSettings, Fr, G1Mul, G2Mul, KZGSettings, PairingVerify, G1, G2};
-use kzg_settings::FsKZGSettings;
 use rust_kzg_blst::types::{fr::*, g1::*, g2::*, *};
-use rust_kzg_blst::{consts::*, eip_4844::*, utils::*};
 use sha2::{Digest, Sha256};
 
 pub fn pairing(g1s: &[FsG1], g2s: &[FsG2]) -> Result<blst_fp12, Error> {

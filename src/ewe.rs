@@ -225,7 +225,9 @@ mod test {
         let digest_timer = start_timer!(|| "digest");
         let digest = svd.digest(&crs, &signing_targets).unwrap();
         end_timer!(digest_timer);
+        let signer_time = start_timer!(|| "sign");
         let sign = svd.sign(&sk, &crs, &digest, time).unwrap();
+        end_timer!(signer_time);
         let sym_enc = OneTimePadScheme::new();
         let mut rng = rand::thread_rng();
         let msg_of_signing_targets: Vec<_> = (0..FIELD_ELEMENTS_PER_BLOB)
