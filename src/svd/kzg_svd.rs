@@ -3,10 +3,12 @@ use blst::{
     blst_fp12, blst_hash_to_g1, blst_p1_affine, blst_p1_cneg, blst_p1_to_affine, blst_p2_affine,
     blst_p2_to_affine, Pairing,
 };
+use fft_settings::FsFFTSettings;
 use itertools::Itertools;
-pub use kzg::eip_4844::FIELD_ELEMENTS_PER_BLOB;
+use kzg::common_utils::reverse_bit_order;
 use kzg::{
-    eip_4844::*, FFTSettings, Fr, G1LinComb, G1Mul, G2Mul, KZGSettings, PairingVerify, Poly, G1, G2,
+    eip_4844::*, FFTSettings, Fr, G1LinComb, G1Mul, G2Mul, KZGSettings, PairingVerify, Poly, FFTG1,
+    G1, G2,
 };
 use kzg_settings::FsKZGSettings;
 use rust_kzg_blst::types::{fr::*, g1::*, g2::*, poly::*, *};
@@ -48,6 +50,18 @@ impl SvdScheme for KZGSvdScheme {
             .map_err(|e| Error::LoadCRSError(filepath.to_string(), e.to_string()))
     }
 
+    // k = 2^k
+    fn gen_crs(&self, scale: usize, secret: [u8; 32]) -> Result<Self::CRS, Error> {
+        let n: usize = 1 << scale;
+        let (mut secret_g1, secret_g2) = generate_trusted_setup_eval_form(scale, secret);
+
+        let fft_settings =
+            FsFFTSettings::new(scale).map_err(|e| Error::FFTError(n, e.to_string()))?;
+        reverse_bit_order(&mut secret_g1).unwrap();
+        FsKZGSettings::new(&secret_g1, &secret_g2, n, &fft_settings)
+            .map_err(|e| Error::GenCRSError(e.to_string()))
+    }
+
     fn gen_keys(&self, crs: &Self::CRS) -> Result<(Self::SigningKey, Self::VerifyingKey), Error> {
         let sk = FsFr::rand();
         let vk = (G2_GENERATOR.mul(&sk), crs.secret_g2[1].mul(&sk));
@@ -85,14 +99,11 @@ impl SvdScheme for KZGSvdScheme {
         signing_targets: &[Self::SigningTarget],
     ) -> Result<Self::SvdDigest, Error> {
         let polynomial: FsPoly =
-            blob_to_polynomial_generic_len(&signing_targets.into_iter().map(|v| v.0).collect_vec())
-                .map_err(|e| Error::GenDigestError(e.to_string()))?;
-        Ok(FsG1::g1_lincomb(
-            crs.get_g1_secret(),
-            polynomial.get_coeffs(),
-            signing_targets.len(),
-            crs.get_precomputation(),
-        ))
+            FsPoly::from_coeffs(&signing_targets.into_iter().map(|v| v.0).collect_vec());
+        // blob_to_polynomial_generic_len(&signing_targets.into_iter().map(|v| v.0).collect_vec())
+        //     .map_err(|e| Error::GenDigestError(e.to_string()))?;
+        crs.commit_to_poly(&polynomial)
+            .map_err(|e| Error::GenDigestError(e.to_string()))
     }
 
     fn sign(
@@ -157,234 +168,89 @@ impl KZGSvdScheme {
     }
 }
 
-// #[derive(Debug, Clone, Default)]
-// pub struct CRS(pub FsKZGSettings);
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::OneTimePadScheme;
+    use crate::Sha256HasherFp12ToBytes;
+    use ark_std::{end_timer, start_timer};
+    use rand;
+    use rand::Rng;
 
-// impl CRS {
-//     pub fn load_from_filepath(filepath: &str) -> Result<Self, Error> {
-//         let setting = load_trusted_setup_filename_rust(filepath)
-//             .map_err(|e| Error::LoadCRSError(filepath.to_string(), e.to_string()))?;
-//         Ok(Self(setting))
-//     }
+    #[test]
+    fn test_svd_valid_case_1024() {
+        let ekem = KZGEkemScheme::new(Sha256HasherFp12ToBytes::new(), b"dst".to_vec());
+        let svd = &ekem.svd;
+        let mut rng = rand::thread_rng();
+        let secret = [rng.gen(); 32];
+        let crs: kzg_settings::FsKZGSettings = svd.gen_crs(10, secret).unwrap();
+        // svd.load_crs_from_filepath("trusted_setup.txt").unwrap();
+        let (sk, vk) = svd.gen_keys(&crs).unwrap();
+        let time = 1;
+        let mut signing_targets = vec![];
+        for _ in 0..1024 {
+            signing_targets.push(KZGSigningTarget(FsFr::rand()));
+        }
+        let digest_timer = start_timer!(|| "digest");
+        let digest = svd.digest(&crs, &signing_targets).unwrap();
+        end_timer!(digest_timer);
+        let sign = svd.sign(&sk, &crs, &digest, time).unwrap();
+        for idx in 0..1024 {
+            let opening_timer = start_timer!(|| "opening");
+            let opening = svd.open(&crs, &signing_targets, idx as u64).unwrap();
+            end_timer!(opening_timer);
+            let verify_timer = start_timer!(|| "verify");
+            let result = svd
+                .verify(
+                    &crs,
+                    &vk,
+                    time,
+                    idx as u64,
+                    &signing_targets[idx],
+                    &sign,
+                    &opening,
+                )
+                .unwrap();
+            end_timer!(verify_timer);
+            assert!(result);
+        }
+    }
 
-//     pub fn tau_g1s(&self) -> &[FsG1] {
-//         &self.0.secret_g1
-//     }
-
-//     pub fn tau_g2s(&self) -> &[FsG2] {
-//         &self.0.secret_g2
-//     }
-// }
-
-// #[derive(Debug, Clone, Default)]
-// pub struct SingingKey(pub FsFr);
-
-// impl SingingKey {
-//     pub fn new(secret: [u8; 32]) -> Result<Self, Error> {
-//         FsFr::from_bytes(&secret)
-//             .map_err(|err| Error::GenSingingKeyError(err.to_string()))
-//             .map(Self)
-//     }
-
-//     pub fn rand() -> Self {
-//         Self(FsFr::rand())
-//     }
-
-//     pub fn sign(
-//         &self,
-//         crs: &CRS,
-//         digest: &SvdDigest,
-//         time: TimeEpoch,
-//         dst: &[u8],
-//     ) -> Result<Signature, Error> {
-//         Signature::gen(crs, &self, digest, time, dst)
-//     }
-// }
-
-// #[derive(Debug, Clone, Default)]
-// pub struct VerifyingKey {
-//     pub vk: FsG2,
-//     pub tau_vk: FsG2,
-// }
-
-// impl VerifyingKey {
-//     pub fn new(vk: FsG2, tau_vk: FsG2) -> Self {
-//         Self { vk, tau_vk }
-//     }
-
-//     pub fn gen(crs: &CRS, sk: &SingingKey) -> Self {
-//         let vk = G2_GENERATOR.mul(&sk.0);
-//         let tau_vk = crs.tau_g2s()[1].mul(&sk.0);
-//         Self::new(vk, tau_vk)
-//     }
-
-//     pub fn to_bytes(&self) -> Vec<u8> {
-//         let mut bytes = Vec::new();
-//         bytes.extend_from_slice(&self.vk.to_bytes());
-//         bytes.extend_from_slice(&self.tau_vk.to_bytes());
-//         bytes
-//     }
-// }
-
-// pub type TimeEpoch = u64;
-
-// #[derive(Debug, Clone, Default)]
-// pub struct TimeRandomPoint(pub FsG1);
-
-// impl TimeRandomPoint {
-//     pub fn new(point: FsG1) -> Self {
-//         Self(point)
-//     }
-
-//     pub fn gen(vk: &VerifyingKey, time: TimeEpoch, dst: &[u8]) -> Result<Self, Error> {
-//         let mut msg = Vec::new();
-//         msg.extend_from_slice(&vk.to_bytes());
-//         msg.extend_from_slice(&time.to_le_bytes());
-//         let mut out = FsG1::default();
-//         let aug = [];
-//         unsafe {
-//             blst_hash_to_g1(
-//                 &mut out.0,
-//                 msg.as_ptr(),
-//                 msg.len(),
-//                 dst.as_ptr(),
-//                 dst.len(),
-//                 aug.as_ptr(),
-//                 0,
-//             )
-//         };
-//         Ok(Self(out))
-//     }
-
-//     pub fn to_bytes(&self) -> Vec<u8> {
-//         self.0.to_bytes().to_vec()
-//     }
-// }
-
-// pub type SingingTarget = FsFr;
-
-// #[derive(Debug, Clone, Default)]
-// pub struct SvdDigest(pub FsG1);
-
-// impl SvdDigest {
-//     pub fn new(digest: FsG1) -> Self {
-//         Self(digest)
-//     }
-
-//     pub fn gen(crs: &CRS, signing_targets: &[SingingTarget]) -> Result<Self, Error> {
-//         blob_to_kzg_commitment_rust(signing_targets, &crs.0)
-//             .map_err(|e| Error::GenDigestError(e.to_string()))
-//             .map(Self)
-//     }
-// }
-
-// #[derive(Debug, Clone, Default)]
-// pub struct Signature(pub FsG1);
-
-// impl Signature {
-//     pub fn new(signature: FsG1) -> Self {
-//         Self(signature)
-//     }
-
-//     pub fn gen(
-//         crs: &CRS,
-//         sk: &SingingKey,
-//         digest: &SvdDigest,
-//         time: TimeEpoch,
-//         dst: &[u8],
-//     ) -> Result<Self, Error> {
-//         let vk = VerifyingKey::gen(crs, sk);
-//         let time_random_point = TimeRandomPoint::gen(&vk, time, dst).unwrap();
-//         let signed_point = digest.0.add(&time_random_point.0);
-//         let signature = signed_point.mul(&sk.0);
-//         Ok(Self(signature))
-//     }
-// }
-
-// #[derive(Debug, Clone, Default)]
-// pub struct Opening {
-//     pub index: u64,
-//     pub target: FsFr,
-//     pub proof: FsG1,
-// }
-
-// impl Opening {
-//     pub fn new(index: u64, target: FsFr, proof: FsG1) -> Self {
-//         Self {
-//             index,
-//             target,
-//             proof,
-//         }
-//     }
-
-//     pub fn gen(crs: &CRS, signing_targets: &[SingingTarget], index: u64) -> Result<Self, Error> {
-//         let roots_of_unity = crs.0.get_fft_settings().get_roots_of_unity();
-//         let (proof, _) =
-//             compute_kzg_proof_rust(signing_targets, &roots_of_unity[index as usize], &crs.0)
-//                 .map_err(|e| Error::OpeningError(index, e.to_string()))?;
-//         Ok(Self {
-//             index,
-//             target: signing_targets[index as usize],
-//             proof,
-//         })
-//     }
-// }
-
-// pub fn verify_svd(
-//     crs: &CRS,
-//     vk: &VerifyingKey,
-//     time: TimeEpoch,
-//     dst: &[u8],
-//     index: u64,
-//     signing_target: &SingingTarget,
-//     signature: &Signature,
-//     opening: &Opening,
-// ) -> Result<bool, Error> {
-//     assert_eq!(opening.index, index);
-//     let fft_settings = crs.0.get_fft_settings();
-//     let roots_of_unity = fft_settings.get_roots_of_unity();
-//     let factor = vk.vk.mul(&roots_of_unity[index as usize]).sub(&vk.tau_vk);
-//     // println!("factor: {:?}", factor);
-//     let time_random_point = TimeRandomPoint::gen(vk, time, dst)?;
-//     let signing_target_g1 = G1_GENERATOR.mul(signing_target);
-//     let sum = signing_target_g1.add(&time_random_point.0);
-//     let h_from_ins = pairing(&[sum], &[vk.vk])?;
-//     let h_from_w = pairing(&[signature.0, opening.proof], &[G2_GENERATOR, factor])?;
-//     let result = blst_fp12::finalverify(&h_from_ins, &h_from_w);
-//     Ok(result)
-// }
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-
-//     #[test]
-//     fn test_svd_valid_case() {
-//         let crs = CRS::load_from_filepath("trusted_setup.txt").unwrap();
-//         let sk = SingingKey::rand();
-//         let vk = VerifyingKey::gen(&crs, &sk);
-//         let time = 1;
-//         let dst = b"dst";
-//         let mut siging_targets = vec![];
-//         for _ in 0..FIELD_ELEMENTS_PER_BLOB {
-//             siging_targets.push(FsFr::rand());
-//         }
-//         let digest = SvdDigest::gen(&crs, &siging_targets).unwrap();
-//         let sign = sk.sign(&crs, &digest, time, dst).unwrap();
-//         for idx in 0..FIELD_ELEMENTS_PER_BLOB {
-//             let opening = Opening::gen(&crs, &siging_targets, idx as u64).unwrap();
-//             let result = verify_svd(
-//                 &crs,
-//                 &vk,
-//                 time,
-//                 dst,
-//                 idx as u64,
-//                 &siging_targets[idx as usize],
-//                 &sign,
-//                 &opening,
-//             )
-//             .unwrap();
-//             assert!(result);
-//         }
-//     }
-// }
+    #[test]
+    fn test_svd_valid_case_4096() {
+        let ekem = KZGEkemScheme::new(Sha256HasherFp12ToBytes::new(), b"dst".to_vec());
+        let svd = &ekem.svd;
+        let crs: kzg_settings::FsKZGSettings =
+            svd.load_crs_from_filepath("trusted_setup.txt").unwrap();
+        // svd.load_crs_from_filepath("trusted_setup.txt").unwrap();
+        let (sk, vk) = svd.gen_keys(&crs).unwrap();
+        let time = 1;
+        let mut signing_targets = vec![];
+        for _ in 0..4096 {
+            signing_targets.push(KZGSigningTarget(FsFr::rand()));
+        }
+        let digest_timer = start_timer!(|| "digest");
+        let digest = svd.digest(&crs, &signing_targets).unwrap();
+        end_timer!(digest_timer);
+        let sign = svd.sign(&sk, &crs, &digest, time).unwrap();
+        for idx in 0..4096 {
+            let opening_timer = start_timer!(|| "opening");
+            let opening = svd.open(&crs, &signing_targets, idx as u64).unwrap();
+            end_timer!(opening_timer);
+            let verify_timer = start_timer!(|| "verify");
+            let result = svd
+                .verify(
+                    &crs,
+                    &vk,
+                    time,
+                    idx as u64,
+                    &signing_targets[idx],
+                    &sign,
+                    &opening,
+                )
+                .unwrap();
+            end_timer!(verify_timer);
+            assert!(result);
+        }
+    }
+}

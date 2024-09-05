@@ -246,46 +246,42 @@ mod test {
         for (idx, msg) in msgs.iter().enumerate() {
             assert_eq!(msg_of_signing_targets[idx].2, msg.to_vec());
         }
+    }
 
-        // let crs = CRS::load_from_filepath("trusted_setup.txt").unwrap();
-        // let sk = SingingKey::rand();
-        // let vk = VerifyingKey::gen(&crs, &sk);
-        // let time = 1;
-        // let dst = b"dst";
-        // let mut siging_targets = vec![];
-        // for _ in 0..FIELD_ELEMENTS_PER_BLOB {
-        //     siging_targets.push(FsFr::rand());
-        // }
-        // let digest_timer = start_timer!(|| "digest");
-        // let digest = SvdDigest::gen(&crs, &siging_targets).unwrap();
-        // end_timer!(digest_timer);
-        // let sign = sk.sign(&crs, &digest, time, dst).unwrap();
-        // let hasher = Sha256HasherFp12ToBytes::new();
-        // let enc_scheme = OneTimePadScheme::new();
-        // let mut rng = rand::thread_rng();
-        // let msg_of_signing_targets: Vec<_> = (0..FIELD_ELEMENTS_PER_BLOB)
-        //     .map(|idx| {
-        //         let msg = [rng.gen(); 32];
-        //         (idx as u64, siging_targets[idx], msg.to_vec())
-        //     })
-        //     .collect();
-        // let enc_timer = start_timer!(|| "enc");
-        // let cts = ewe_enc_batch(
-        //     &crs,
-        //     &hasher,
-        //     &enc_scheme,
-        //     &vk,
-        //     time,
-        //     dst,
-        //     &msg_of_signing_targets,
-        // )
-        // .unwrap();
-        // end_timer!(enc_timer);
-        // let dec_timer = start_timer!(|| "dec");
-        // let msgs = ewe_dec_batch(&crs, &cts, &hasher, &enc_scheme, &sign, &siging_targets).unwrap();
-        // end_timer!(dec_timer);
-        // for (idx, msg) in msgs.iter().enumerate() {
-        //     assert_eq!(msg_of_signing_targets[idx].2, msg.to_vec());
-        // }
+    #[test]
+    fn test_ewe_valid_case_1024() {
+        let ekem = KZGEkemScheme::new(Sha256HasherFp12ToBytes::new(), b"dst".to_vec());
+        let svd = &ekem.svd;
+        let mut rng = rand::thread_rng();
+        let secret = [rng.gen(); 32];
+        let crs: kzg_settings::FsKZGSettings = svd.gen_crs(10, secret).unwrap();
+        // svd.load_crs_from_filepath("trusted_setup.txt").unwrap();
+        let (sk, vk) = svd.gen_keys(&crs).unwrap();
+        let time = 1;
+        let mut signing_targets = vec![];
+        for _ in 0..1024 {
+            signing_targets.push(KZGSigningTarget(FsFr::rand()));
+        }
+        let digest_timer = start_timer!(|| "digest");
+        let digest = svd.digest(&crs, &signing_targets).unwrap();
+        end_timer!(digest_timer);
+        let sign = svd.sign(&sk, &crs, &digest, time).unwrap();
+        let sym_enc = OneTimePadScheme::new();
+        let msg_of_signing_targets: Vec<_> = (0..1024)
+            .map(|idx| {
+                let msg = [rng.gen(); 32];
+                (idx as u64, signing_targets[idx].clone(), msg.to_vec())
+            })
+            .collect();
+        let enc_timer = start_timer!(|| "enc");
+        let cts =
+            ewe_enc_batch(&ekem, &sym_enc, &crs, &vk, &time, &msg_of_signing_targets).unwrap();
+        end_timer!(enc_timer);
+        let dec_timer = start_timer!(|| "dec");
+        let msgs = ewe_dec_batch(&cts, &ekem, &sym_enc, &crs, &sign, &signing_targets).unwrap();
+        end_timer!(dec_timer);
+        for (idx, msg) in msgs.iter().enumerate() {
+            assert_eq!(msg_of_signing_targets[idx].2, msg.to_vec());
+        }
     }
 }

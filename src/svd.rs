@@ -15,6 +15,7 @@ pub trait SvdScheme {
     type Opening: Send + Sync;
 
     fn load_crs_from_filepath(&self, filepath: &str) -> Result<Self::CRS, Error>;
+    fn gen_crs(&self, scale: usize, secret: [u8; 32]) -> Result<Self::CRS, Error>;
     fn gen_keys(&self, crs: &Self::CRS) -> Result<(Self::SigningKey, Self::VerifyingKey), Error>;
     fn gen_time_random_point(
         &self,
