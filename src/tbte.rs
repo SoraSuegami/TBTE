@@ -14,6 +14,7 @@ use rust_kzg_blst::{consts::*, eip_4844::*, utils::*};
 use sha2::{Digest, Sha256};
 pub mod kzg_tbte;
 pub use kzg_tbte::*;
+use rayon::prelude::*;
 
 pub trait TbteScheme: Send + Sync {
     type CRS: Send + Sync;
@@ -62,4 +63,20 @@ pub trait TbteScheme: Send + Sync {
         cts: &[Self::Ct],
         pds: &[Self::PartialDec],
     ) -> Result<Vec<Self::Plaintext>, Error>;
+
+    fn enc_batch(
+        &self,
+        pk: &Self::PublicKey,
+        eid: &Self::EpochId,
+        indices: &[u64],
+        tags: &[Self::Tag],
+        plaintexts: &[Self::Plaintext],
+    ) -> Result<Vec<Self::Ct>, Error> {
+        indices
+            .par_iter()
+            .zip(tags.par_iter())
+            .zip(plaintexts.par_iter())
+            .map(|((&index, tag), plaintext)| self.enc(pk, eid, index, tag, plaintext))
+            .collect()
+    }
 }

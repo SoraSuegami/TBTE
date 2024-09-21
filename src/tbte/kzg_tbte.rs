@@ -178,37 +178,11 @@ impl TbteScheme for KZGTbteScheme {
             .iter()
             .zip(basis.iter())
             .fold(FsG1::zero(), |acc, ((_, d), b)| acc.add(&d.mul(b)));
-        // let mut plaintexts = Vec::new();
+
         let crs = &pk.crs;
         let roots_of_unity = crs.get_fft_settings().get_roots_of_unity();
         let tags = cts.into_iter().map(|v| &v.tag).collect_vec();
-        // for (idx, ct) in cts.iter().enumerate() {
-        //     if ct.eid != *eid {
-        //         return Err(Error::EidMismatchError(*eid, ct.eid));
-        //     }
-        //     let (opening, _) = compute_kzg_proof_rust_generic_len(
-        //         &tags.iter().map(|v| v.0).collect_vec(),
-        //         &roots_of_unity[idx],
-        //         crs,
-        //     )
-        //     .map_err(|e| Error::OpeningError(idx as u64, e.to_string()))?;
-        //     let pairinged = pairing(
-        //         &[FsG1::zero().sub(&pd.clone()), FsG1::zero().sub(&opening)],
-        //         &[ct.s, ct.u],
-        //     )?;
-        //     let plaintext = unsafe {
-        //         let ret = Box::new(blst_fp12 {
-        //             fp6: [blst_fp6::default(); 2],
-        //         });
-        //         let ret_ptr = Box::into_raw(ret);
-        //         blst_fp12_mul(ret_ptr, &ct.k, &pairinged);
-        //         // g^0=1, thus the plaintext is false if the result is 1
-        //         let is_false = blst_fp12_is_one(ret_ptr as *const blst_fp12);
-        //         let _ = Box::from_raw(ret_ptr);
-        //         !is_false
-        //     };
-        //     plaintexts.push(plaintext);
-        // }
+
         let plaintexts: Vec<_> = cts
             .par_iter()
             .enumerate()
@@ -264,22 +238,6 @@ impl KZGTbteScheme {
             )
         };
         out
-    }
-
-    pub fn enc_batch(
-        &self,
-        pk: &<Self as TbteScheme>::PublicKey,
-        eid: &<Self as TbteScheme>::EpochId,
-        indices: &[u64],
-        tags: &[<Self as TbteScheme>::Tag],
-        plaintexts: &[<Self as TbteScheme>::Plaintext],
-    ) -> Result<Vec<<Self as TbteScheme>::Ct>, Error> {
-        indices
-            .par_iter()
-            .zip(tags.par_iter())
-            .zip(plaintexts.par_iter())
-            .map(|((&index, tag), plaintext)| self.enc(pk, eid, index, tag, plaintext))
-            .collect()
     }
 }
 
