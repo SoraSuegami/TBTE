@@ -1,0 +1,18 @@
+name: Unit-Tests
+
+on:
+  [push]
+
+jobs:
+  build-test-fmt:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - run: rustup show
+
+    - uses: Swatinem/rust-cache@v2
+
+    - name: Run tests
+      run: cargo test

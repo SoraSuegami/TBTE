@@ -1,12 +1,10 @@
-pub mod ekem;
-pub mod ewe;
-pub mod svd;
+pub mod tbte;
 mod utils;
-pub use ekem::*;
-pub use ewe::*;
-pub use svd::*;
+pub use tbte::*;
 use thiserror::Error;
 pub use utils::*;
+pub mod shamir;
+pub use shamir::*;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -22,10 +20,14 @@ pub enum Error {
     GenDigestError(String),
     #[error("failed to generate an opening at index {0}: {1}")]
     OpeningError(u64, String),
-    #[error("failed to compute a hasher from fp12 to bytes: {0}")]
-    HasherFp12ToBytesError(String),
-    #[error("failed to compute a symmetric encryption scheme: {0}")]
-    SymEncSchemeError(String),
-    // #[error("failed to compute a hash-to-field from {0}")]
+    #[error("{0} pds is not enough for t+1={1}")]
+    NotEnoughPdsError(u64, u64),
+    #[error("the expected eid {0} does not match the eid {1} in the ciphertext")]
+    EidMismatchError(u64, u64),
+    // #[error("failed to compute a hasher from fp12 to bytes: {0}")]
+    // HasherFp12ToBytesError(String),
+    // #[error("failed to compute a symmetric encryption scheme: {0}")]
+    // SymEncSchemeError(String),
+    // // #[error("failed to compute a hash-to-field from {0}")]
     // HashToFieldeError(String),
 }
