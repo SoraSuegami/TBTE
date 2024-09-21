@@ -1,5 +1,5 @@
 [package]
-name = "ewe_svd"
+name = "TBTE"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,3 +16,10 @@ sha2 = "0.10.8"
 rand = "0.8.4"
 ark-std = { version = "0.4.0", features = ["print-trace"] }
 rayon = "1.10.0"
+
+[dev-dependencies]
+criterion = "0.4"
+
+[[bench]]
+name = "kzg_tbte"
+harness = false
