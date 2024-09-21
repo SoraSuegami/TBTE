@@ -14,33 +14,33 @@ use TBTE::*;
 // const CORRUPT_THRESHOLD: u64 = 33;
 
 fn benchmark_kzg_tbte_4096_10_3(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 4096, 10, 3);
+    benchmark_kzg_tbte(c, 12, 10, 3);
 }
 
 fn benchmark_kzg_tbte_8192_10_3(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 8192, 10, 3);
+    benchmark_kzg_tbte(c, 13, 10, 3);
 }
 
 fn benchmark_kzg_tbte_16384_10_3(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 16384, 10, 3);
+    benchmark_kzg_tbte(c, 14, 10, 3);
 }
 
 fn benchmark_kzg_tbte_4096_100_33(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 4096, 100, 33);
+    benchmark_kzg_tbte(c, 12, 100, 33);
 }
 
 fn benchmark_kzg_tbte_8192_100_33(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 8192, 100, 33);
+    benchmark_kzg_tbte(c, 13, 100, 33);
 }
 
 fn benchmark_kzg_tbte_16384_100_33(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 16384, 100, 33);
+    benchmark_kzg_tbte(c, 14, 100, 33);
 }
 
 // Benchmark function
 fn benchmark_kzg_tbte(
     c: &mut Criterion,
-    batch_size: usize,
+    batch_scale: usize,
     num_parties: u64,
     corrupt_threshold: u64,
 ) {
@@ -54,9 +54,11 @@ fn benchmark_kzg_tbte(
     let tbte = KZGTbteScheme::new(b"dst".to_vec());
 
     // Setup CRS (Common Reference String)
-    let scale = 12; // 2^12 = 4096
+    let batch_size: usize = 1 << batch_scale;
     let secret = [0u8; 32]; // Example secret
-    let crs = tbte.setup_crs(scale, secret).expect("CRS setup failed");
+    let crs = tbte
+        .setup_crs(batch_scale, secret)
+        .expect("CRS setup failed");
     // Setup keys with the given number of parties and corruption threshold
     let (sks, pk) = tbte
         .setup_keys(crs, corrupt_threshold, num_parties)
