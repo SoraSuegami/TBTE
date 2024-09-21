@@ -154,7 +154,7 @@ fn benchmark_kzg_tbte(
 // Define the benchmark group and main function
 criterion_group! {
     name = benches;
-    config = Criterion::default().measurement_time(std::time::Duration::from_secs(180));
+    config = Criterion::default();
     targets = benchmark_kzg_tbte_4096_10_3, benchmark_kzg_tbte_8192_10_3, benchmark_kzg_tbte_16384_10_3,
               benchmark_kzg_tbte_4096_100_33, benchmark_kzg_tbte_8192_100_33, benchmark_kzg_tbte_16384_100_33
 }
