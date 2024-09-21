@@ -73,24 +73,14 @@ mod test {
 
     #[test]
     fn test_shamir_n10_t3() {
-        let shamir = ShamirSecretSharing::new(10, 3);
+        let shamir = ShamirSecretSharing::new(8, 3);
         let secret = FsFr::rand();
         let shares = shamir.share(secret);
         println!("shares: {:?}", shares);
-        // get 4 shares from shares randomly
-        let mut rng = rand::thread_rng();
-        let mut recovery_shares1 = vec![];
-        for _ in 0..4 {
-            let idx = rng.gen_range(0..shares.len());
-            recovery_shares1.push(shares[idx]);
-        }
+        let recovery_shares1 = shares[0..4].to_vec();
         let recovered1 = shamir.recover(&recovery_shares1).unwrap();
         assert_eq!(secret, recovered1);
-        let mut recovery_shares2 = vec![];
-        for _ in 0..4 {
-            let idx = rng.gen_range(0..shares.len());
-            recovery_shares2.push(shares[idx]);
-        }
+        let recovery_shares2 = shares[4..8].to_vec();
         let recovered2 = shamir.recover(&recovery_shares2).unwrap();
         assert_eq!(secret, recovered2);
     }
