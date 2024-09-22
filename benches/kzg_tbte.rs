@@ -41,6 +41,22 @@ fn benchmark_kzg_tbte_65536_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 16, 9, 3);
 }
 
+fn benchmark_kzg_tbte_131072_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 17, 9, 3);
+}
+
+fn benchmark_kzg_tbte_262144_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 18, 9, 3);
+}
+
+fn benchmark_kzg_tbte_524288_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 19, 9, 3);
+}
+
+fn benchmark_kzg_tbte_1048576_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 20, 9, 3);
+}
+
 fn benchmark_kzg_tbte_1024_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 10, 99, 33);
 }
@@ -69,6 +85,22 @@ fn benchmark_kzg_tbte_65536_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 16, 99, 33);
 }
 
+fn benchmark_kzg_tbte_131072_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 17, 99, 33);
+}
+
+fn benchmark_kzg_tbte_262144_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 18, 99, 33);
+}
+
+fn benchmark_kzg_tbte_524288_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 19, 99, 33);
+}
+
+fn benchmark_kzg_tbte_1048576_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 20, 99, 33);
+}
+
 // Benchmark function
 fn benchmark_kzg_tbte(
     c: &mut Criterion,
@@ -89,22 +121,28 @@ fn benchmark_kzg_tbte(
     let batch_size: usize = 1 << batch_scale;
     let secret = [0u8; 32]; // Example secret
                             // Setup Benchmark
-    group.bench_function("setup", |b| {
-        b.iter(|| {
-            // Setup the CRS
-            let crs = tbte
-                .setup_crs(batch_scale, secret)
-                .expect("CRS setup failed");
-            // Setup keys with the given number of parties and corruption threshold
-            let (sks, pk) = tbte
-                .setup_keys(crs, corrupt_threshold, num_parties)
-                .expect("Key setup failed");
+    group.bench_function(
+        format!(
+            "setup batch_scale={}, num_parties={}, corrupt_threshold={}",
+            batch_scale, num_parties, corrupt_threshold
+        ),
+        |b| {
+            b.iter(|| {
+                // Setup the CRS
+                let crs = tbte
+                    .setup_crs(batch_scale, secret)
+                    .expect("CRS setup failed");
+                // Setup keys with the given number of parties and corruption threshold
+                let (sks, pk) = tbte
+                    .setup_keys(crs, corrupt_threshold, num_parties)
+                    .expect("Key setup failed");
 
-            // Consume the keys to prevent optimizations
-            black_box(sks);
-            black_box(pk);
-        });
-    });
+                // Consume the keys to prevent optimizations
+                black_box(sks);
+                black_box(pk);
+            });
+        },
+    );
     let crs = tbte
         .setup_crs(batch_scale, secret)
         .expect("CRS setup failed");
@@ -127,16 +165,22 @@ fn benchmark_kzg_tbte(
     let eid = 1;
 
     // Encryption Benchmark
-    group.bench_function("encryption", |b| {
-        b.iter(|| {
-            // Perform batch encryption
-            let ct = tbte
-                .enc(&pk, &eid, 0, &tags[0], &plaintexts[0])
-                .expect("Encryption failed");
-            // Consume the ciphertexts to prevent optimizations
-            black_box(ct);
-        });
-    });
+    group.bench_function(
+        format!(
+            "encryption batch_scale={}, num_parties={}, corrupt_threshold={}",
+            batch_scale, num_parties, corrupt_threshold
+        ),
+        |b| {
+            b.iter(|| {
+                // Perform batch encryption
+                let ct = tbte
+                    .enc(&pk, &eid, 0, &tags[0], &plaintexts[0])
+                    .expect("Encryption failed");
+                // Consume the ciphertexts to prevent optimizations
+                black_box(ct);
+            });
+        },
+    );
     let cts = tbte
         .enc_batch(
             &pk,
@@ -149,28 +193,40 @@ fn benchmark_kzg_tbte(
     println!("ct size: {:?}", cts[0].data_size());
 
     // Digest Benchmark
-    group.bench_function("digest", |b| {
-        b.iter(|| {
-            // Compute digest
-            let digest = tbte.digest(&pk, &tags).expect("Digest computation failed");
-            // Consume the digest to prevent optimizations
-            black_box(digest);
-        });
-    });
+    group.bench_function(
+        format!(
+            "digest batch_scale={}, num_parties={}, corrupt_threshold={}",
+            batch_scale, num_parties, corrupt_threshold
+        ),
+        |b| {
+            b.iter(|| {
+                // Compute digest
+                let digest = tbte.digest(&pk, &tags).expect("Digest computation failed");
+                // Consume the digest to prevent optimizations
+                black_box(digest);
+            });
+        },
+    );
     let digest = tbte.digest(&pk, &tags).expect("Digest computation failed");
     println!("digest size {}", digest.to_bytes().len());
 
     // Partial Decryption Benchmark
-    group.bench_function("partial decryption", |b| {
-        b.iter(|| {
-            // Generate partial decryptions
-            let pd = tbte
-                .batch_dec(&sks[0], &eid, &digest)
-                .expect("Partial decryption failed");
-            // Consume the recovered plaintexts to prevent optimizations
-            black_box(pd);
-        });
-    });
+    group.bench_function(
+        format!(
+            "partial decryption batch_scale={}, num_parties={}, corrupt_threshold={}",
+            batch_scale, num_parties, corrupt_threshold
+        ),
+        |b| {
+            b.iter(|| {
+                // Generate partial decryptions
+                let pd = tbte
+                    .batch_dec(&sks[0], &eid, &digest)
+                    .expect("Partial decryption failed");
+                // Consume the recovered plaintexts to prevent optimizations
+                black_box(pd);
+            });
+        },
+    );
     let pds: Vec<_> = sks
         .iter()
         .map(|sk| tbte.batch_dec(sk, &eid, &digest))
@@ -179,17 +235,23 @@ fn benchmark_kzg_tbte(
     println!("pd size: {:?}", 8 + pds[0].1.to_bytes().len());
 
     // Combine Benchmark
-    group.bench_function("combine", |b| {
-        b.iter(|| {
-            // Perform combine step to recover plaintexts
-            let recovered = tbte
-                .combine(&pk, &eid, &cts, &pds)
-                .expect("Combine step failed");
+    group.bench_function(
+        format!(
+            "combine batch_scale={}, num_parties={}, corrupt_threshold={}",
+            batch_scale, num_parties, corrupt_threshold
+        ),
+        |b| {
+            b.iter(|| {
+                // Perform combine step to recover plaintexts
+                let recovered = tbte
+                    .combine(&pk, &eid, &cts, &pds)
+                    .expect("Combine step failed");
 
-            // Consume the recovered plaintexts to prevent optimizations
-            black_box(recovered);
-        });
-    });
+                // Consume the recovered plaintexts to prevent optimizations
+                black_box(recovered);
+            });
+        },
+    );
 
     // Finish the benchmark group
     group.finish();
@@ -199,6 +261,6 @@ fn benchmark_kzg_tbte(
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = benchmark_kzg_tbte_1024_9_3, benchmark_kzg_tbte_2048_9_3, benchmark_kzg_tbte_4096_9_3, benchmark_kzg_tbte_8192_9_3, benchmark_kzg_tbte_16384_9_3, benchmark_kzg_tbte_32768_9_3, benchmark_kzg_tbte_65536_9_3, benchmark_kzg_tbte_1024_99_33, benchmark_kzg_tbte_2048_99_33, benchmark_kzg_tbte_4096_99_33, benchmark_kzg_tbte_8192_99_33, benchmark_kzg_tbte_16384_99_33, benchmark_kzg_tbte_32768_99_33, benchmark_kzg_tbte_65536_99_33
+    targets = benchmark_kzg_tbte_1024_9_3, benchmark_kzg_tbte_2048_9_3, benchmark_kzg_tbte_4096_9_3, benchmark_kzg_tbte_8192_9_3, benchmark_kzg_tbte_16384_9_3, benchmark_kzg_tbte_32768_9_3, benchmark_kzg_tbte_65536_9_3, benchmark_kzg_tbte_131072_9_3, benchmark_kzg_tbte_262144_9_3, benchmark_kzg_tbte_524288_9_3, benchmark_kzg_tbte_1048576_9_3, benchmark_kzg_tbte_1024_99_33, benchmark_kzg_tbte_2048_99_33, benchmark_kzg_tbte_4096_99_33, benchmark_kzg_tbte_8192_99_33, benchmark_kzg_tbte_16384_99_33, benchmark_kzg_tbte_32768_99_33, benchmark_kzg_tbte_65536_99_33, benchmark_kzg_tbte_131072_99_33, benchmark_kzg_tbte_262144_99_33, benchmark_kzg_tbte_524288_99_33, benchmark_kzg_tbte_1048576_99_33
 }
 criterion_main!(benches);
