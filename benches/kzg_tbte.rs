@@ -13,28 +13,60 @@ use TBTE::*;
 // const NUM_PARTIES: u64 = 100;
 // const CORRUPT_THRESHOLD: u64 = 33;
 
-fn benchmark_kzg_tbte_4096_10_3(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 12, 10, 3);
+fn benchmark_kzg_tbte_1024_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 10, 9, 3);
 }
 
-fn benchmark_kzg_tbte_8192_10_3(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 13, 10, 3);
+fn benchmark_kzg_tbte_2048_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 11, 9, 3);
 }
 
-fn benchmark_kzg_tbte_16384_10_3(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 14, 10, 3);
+fn benchmark_kzg_tbte_4096_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 12, 9, 3);
 }
 
-fn benchmark_kzg_tbte_4096_100_33(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 12, 100, 33);
+fn benchmark_kzg_tbte_8192_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 13, 9, 3);
 }
 
-fn benchmark_kzg_tbte_8192_100_33(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 13, 100, 33);
+fn benchmark_kzg_tbte_16384_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 14, 9, 3);
 }
 
-fn benchmark_kzg_tbte_16384_100_33(c: &mut Criterion) {
-    benchmark_kzg_tbte(c, 14, 100, 33);
+fn benchmark_kzg_tbte_32768_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 15, 9, 3);
+}
+
+fn benchmark_kzg_tbte_65536_9_3(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 16, 9, 3);
+}
+
+fn benchmark_kzg_tbte_1024_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 10, 99, 33);
+}
+
+fn benchmark_kzg_tbte_2048_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 11, 99, 3);
+}
+
+fn benchmark_kzg_tbte_4096_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 12, 99, 33);
+}
+
+fn benchmark_kzg_tbte_8192_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 13, 99, 33);
+}
+
+fn benchmark_kzg_tbte_16384_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 14, 99, 33);
+}
+
+fn benchmark_kzg_tbte_32768_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 15, 99, 33);
+}
+
+fn benchmark_kzg_tbte_65536_99_33(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 16, 99, 33);
 }
 
 // Benchmark function
@@ -157,7 +189,6 @@ fn benchmark_kzg_tbte(
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = benchmark_kzg_tbte_4096_10_3, benchmark_kzg_tbte_8192_10_3, benchmark_kzg_tbte_16384_10_3,
-              benchmark_kzg_tbte_4096_100_33, benchmark_kzg_tbte_8192_100_33, benchmark_kzg_tbte_16384_100_33
+    targets = benchmark_kzg_tbte_1024_9_3, benchmark_kzg_tbte_2048_9_3, benchmark_kzg_tbte_4096_9_3, benchmark_kzg_tbte_8192_9_3, benchmark_kzg_tbte_16384_9_3, benchmark_kzg_tbte_32768_9_3, benchmark_kzg_tbte_65536_9_3, benchmark_kzg_tbte_1024_99_33, benchmark_kzg_tbte_2048_99_33, benchmark_kzg_tbte_4096_99_33, benchmark_kzg_tbte_8192_99_33, benchmark_kzg_tbte_16384_99_33, benchmark_kzg_tbte_32768_99_33, benchmark_kzg_tbte_65536_99_33
 }
 criterion_main!(benches);
