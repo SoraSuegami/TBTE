@@ -112,18 +112,12 @@ fn benchmark_kzg_tbte(
     group.bench_function("encryption", |b| {
         b.iter(|| {
             // Perform batch encryption
-            let cts = tbte
-                .enc_batch(
-                    &pk,
-                    &eid,
-                    &(0u64..batch_size as u64).collect::<Vec<u64>>(),
-                    &tags,
-                    &plaintexts,
-                )
+            let ct = tbte
+                .enc(&pk, &eid, 0, &tags[0], &plaintexts[0])
                 .expect("Encryption failed");
 
             // Consume the ciphertexts to prevent optimizations
-            black_box(cts);
+            black_box(ct);
         });
     });
     let cts = tbte
@@ -152,14 +146,12 @@ fn benchmark_kzg_tbte(
     group.bench_function("partial decryption", |b| {
         b.iter(|| {
             // Generate partial decryptions
-            let pds: Vec<_> = sks
-                .iter()
-                .map(|sk| tbte.batch_dec(sk, &eid, &digest))
-                .collect::<Result<Vec<_>, _>>()
+            let pd = tbte
+                .batch_dec(&sks[0], &eid, &digest)
                 .expect("Partial decryption failed");
 
             // Consume the recovered plaintexts to prevent optimizations
-            black_box(pds);
+            black_box(pd);
         });
     });
     let pds: Vec<_> = sks
