@@ -24,6 +24,30 @@ pub struct KZGPublicKey {
     pub crs: FsKZGSettings,
 }
 
+impl KZGPublicKey {
+    pub fn data_sizes(&self) -> (u64, u64) {
+        let pk0_size = self.pk0.to_bytes().len() as u64;
+        let pk1_size = self.pk1.to_bytes().len() as u64;
+        let pk_size = pk0_size + pk1_size;
+        let crs_size = {
+            let g1_size: u64 = self
+                .crs
+                .secret_g1
+                .iter()
+                .map(|v| v.to_bytes().len() as u64)
+                .sum();
+            let g2_size: u64 = self
+                .crs
+                .secret_g2
+                .iter()
+                .map(|v| v.to_bytes().len() as u64)
+                .sum();
+            g1_size + g2_size
+        };
+        (pk_size, crs_size)
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct KZGTag(pub FsFr);
 
@@ -47,6 +71,16 @@ pub struct KZGCt {
     s: FsG2,
     u: FsG2,
     k: blst_fp12,
+}
+
+impl KZGCt {
+    pub fn data_size(&self) -> u64 {
+        let tag_size = self.tag.0.to_bytes().len() as u64;
+        let s_size = self.s.to_bytes().len() as u64;
+        let u_size = self.u.to_bytes().len() as u64;
+        let k_size = std::mem::size_of::<blst_fp12>() as u64;
+        8 + 8 + tag_size + s_size + u_size + k_size
+    }
 }
 
 #[derive(Debug, Clone, Default)]

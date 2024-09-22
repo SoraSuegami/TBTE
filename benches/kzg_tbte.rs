@@ -1,7 +1,7 @@
 use std::f32::consts::E;
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use kzg::Fr;
+use kzg::{Fr, G1, G2};
 use rand::thread_rng;
 use rand::Rng;
 use rust_kzg_blst::types::fr::FsFr;
@@ -112,6 +112,7 @@ fn benchmark_kzg_tbte(
     let (sks, pk) = tbte
         .setup_keys(crs, corrupt_threshold, num_parties)
         .expect("Key setup failed");
+    println!("pk size: {:?}", pk.data_sizes());
 
     // Generate random tags
     let mut tags = Vec::with_capacity(batch_size);
@@ -132,7 +133,6 @@ fn benchmark_kzg_tbte(
             let ct = tbte
                 .enc(&pk, &eid, 0, &tags[0], &plaintexts[0])
                 .expect("Encryption failed");
-
             // Consume the ciphertexts to prevent optimizations
             black_box(ct);
         });
@@ -146,18 +146,19 @@ fn benchmark_kzg_tbte(
             &plaintexts,
         )
         .expect("Encryption failed");
+    println!("ct size: {:?}", cts[0].data_size());
 
     // Digest Benchmark
     group.bench_function("digest", |b| {
         b.iter(|| {
             // Compute digest
             let digest = tbte.digest(&pk, &tags).expect("Digest computation failed");
-
             // Consume the digest to prevent optimizations
             black_box(digest);
         });
     });
     let digest = tbte.digest(&pk, &tags).expect("Digest computation failed");
+    println!("digest size {}", digest.to_bytes().len());
 
     // Partial Decryption Benchmark
     group.bench_function("partial decryption", |b| {
@@ -166,7 +167,6 @@ fn benchmark_kzg_tbte(
             let pd = tbte
                 .batch_dec(&sks[0], &eid, &digest)
                 .expect("Partial decryption failed");
-
             // Consume the recovered plaintexts to prevent optimizations
             black_box(pd);
         });
@@ -176,6 +176,7 @@ fn benchmark_kzg_tbte(
         .map(|sk| tbte.batch_dec(sk, &eid, &digest))
         .collect::<Result<Vec<_>, _>>()
         .expect("Partial decryption failed");
+    println!("pd size: {:?}", 8 + pds[0].1.to_bytes().len());
 
     // Combine Benchmark
     group.bench_function("combine", |b| {
