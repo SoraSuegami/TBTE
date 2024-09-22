@@ -88,6 +88,23 @@ fn benchmark_kzg_tbte(
     // Setup CRS (Common Reference String)
     let batch_size: usize = 1 << batch_scale;
     let secret = [0u8; 32]; // Example secret
+                            // Setup Benchmark
+    group.bench_function("setup", |b| {
+        b.iter(|| {
+            // Setup the CRS
+            let crs = tbte
+                .setup_crs(batch_scale, secret)
+                .expect("CRS setup failed");
+            // Setup keys with the given number of parties and corruption threshold
+            let (sks, pk) = tbte
+                .setup_keys(crs, corrupt_threshold, num_parties)
+                .expect("Key setup failed");
+
+            // Consume the keys to prevent optimizations
+            black_box(sks);
+            black_box(pk);
+        });
+    });
     let crs = tbte
         .setup_crs(batch_scale, secret)
         .expect("CRS setup failed");
