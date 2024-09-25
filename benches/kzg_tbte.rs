@@ -244,7 +244,7 @@ fn benchmark_kzg_tbte(
             b.iter(|| {
                 // Perform combine step to recover plaintexts
                 let recovered = tbte
-                    .combine(&pk, &eid, &cts, &pds)
+                    .combine(&pk, &eid, &cts[0..1], &tags, &pds)
                     .expect("Combine step failed");
 
                 // Consume the recovered plaintexts to prevent optimizations

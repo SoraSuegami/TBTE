@@ -61,6 +61,7 @@ pub trait TbteScheme: Send + Sync {
         pk: &Self::PublicKey,
         eid: &Self::EpochId,
         cts: &[Self::Ct],
+        tags: &[Self::Tag],
         pds: &[Self::PartialDec],
     ) -> Result<Vec<Self::Plaintext>, Error>;
 

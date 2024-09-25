@@ -194,6 +194,7 @@ impl TbteScheme for KZGTbteScheme {
         pk: &Self::PublicKey,
         eid: &Self::EpochId,
         cts: &[Self::Ct],
+        tags: &[Self::Tag],
         pds: &[Self::PartialDec],
     ) -> Result<Vec<Self::Plaintext>, Error> {
         if pds.len() <= pk.corrupt_threshold as usize {
@@ -215,7 +216,7 @@ impl TbteScheme for KZGTbteScheme {
 
         let crs = &pk.crs;
         let roots_of_unity = crs.get_fft_settings().get_roots_of_unity();
-        let tags = cts.into_iter().map(|v| &v.tag).collect_vec();
+        let tags_vec: Vec<_> = tags.iter().map(|v| v.0).collect();
 
         let plaintexts: Vec<_> = cts
             .par_iter()
@@ -224,7 +225,6 @@ impl TbteScheme for KZGTbteScheme {
                 if ct.eid != *eid {
                     return Err(Error::EidMismatchError(*eid, ct.eid));
                 }
-                let tags_vec: Vec<_> = tags.iter().map(|v| v.0).collect();
                 let (opening, _) =
                     compute_kzg_proof_rust_generic_len(&tags_vec, &roots_of_unity[idx], crs)
                         .map_err(|e| Error::OpeningError(idx as u64, e.to_string()))?;
@@ -321,7 +321,7 @@ mod test {
             .unwrap();
         end_timer!(pd_timer);
         let combine_timer = start_timer!(|| "combine");
-        let recovered = tbte.combine(&pk, &eid, &cts, &pds).unwrap();
+        let recovered = tbte.combine(&pk, &eid, &cts, &tags, &pds).unwrap();
         end_timer!(combine_timer);
         assert_eq!(plaintexts, recovered);
     }
