@@ -13,91 +13,91 @@ use TBTE::*;
 // const NUM_PARTIES: u64 = 100;
 // const CORRUPT_THRESHOLD: u64 = 33;
 
-fn benchmark_kzg_tbte_1024_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_10_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 10, 9, 3);
 }
 
-fn benchmark_kzg_tbte_2048_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_11_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 11, 9, 3);
 }
 
-fn benchmark_kzg_tbte_4096_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_12_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 12, 9, 3);
 }
 
-fn benchmark_kzg_tbte_8192_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_13_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 13, 9, 3);
 }
 
-fn benchmark_kzg_tbte_16384_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_14_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 14, 9, 3);
 }
 
-fn benchmark_kzg_tbte_32768_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_15_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 15, 9, 3);
 }
 
-fn benchmark_kzg_tbte_65536_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_16_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 16, 9, 3);
 }
 
-fn benchmark_kzg_tbte_131072_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_17_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 17, 9, 3);
 }
 
-fn benchmark_kzg_tbte_262144_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_18_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 18, 9, 3);
 }
 
-fn benchmark_kzg_tbte_524288_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_19_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 19, 9, 3);
 }
 
-fn benchmark_kzg_tbte_1048576_9_3(c: &mut Criterion) {
+fn benchmark_kzg_tbte_20_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 20, 9, 3);
 }
 
-fn benchmark_kzg_tbte_1024_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_10_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 10, 99, 33);
 }
 
-fn benchmark_kzg_tbte_2048_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_11_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 11, 99, 3);
 }
 
-fn benchmark_kzg_tbte_4096_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_12_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 12, 99, 33);
 }
 
-fn benchmark_kzg_tbte_8192_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_13_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 13, 99, 33);
 }
 
-fn benchmark_kzg_tbte_16384_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_14_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 14, 99, 33);
 }
 
-fn benchmark_kzg_tbte_32768_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_15_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 15, 99, 33);
 }
 
-fn benchmark_kzg_tbte_65536_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_16_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 16, 99, 33);
 }
 
-fn benchmark_kzg_tbte_131072_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_17_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 17, 99, 33);
 }
 
-fn benchmark_kzg_tbte_262144_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_18_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 18, 99, 33);
 }
 
-fn benchmark_kzg_tbte_524288_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_19_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 19, 99, 33);
 }
 
-fn benchmark_kzg_tbte_1048576_99_33(c: &mut Criterion) {
+fn benchmark_kzg_tbte_20_99_33(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 20, 99, 33);
 }
 
@@ -115,34 +115,36 @@ fn benchmark_kzg_tbte(
     group.sample_size(10);
 
     // Initialize the TBTE scheme with a domain separation tag (DST)
-    let tbte = KZGTbteScheme::new(b"dst".to_vec());
+    let hasher = Sha256HasherFp12ToBytes::new();
+    let sym_enc = ChaCha20EncScheme::new();
+    let tbte = KZGTbteScheme::new(b"dst".to_vec(), hasher, sym_enc);
 
     // Setup CRS (Common Reference String)
     let batch_size: usize = 1 << batch_scale;
     let secret = [0u8; 32]; // Example secret
                             // Setup Benchmark
-    group.bench_function(
-        format!(
-            "setup batch_scale={}, num_parties={}, corrupt_threshold={}",
-            batch_scale, num_parties, corrupt_threshold
-        ),
-        |b| {
-            b.iter(|| {
-                // Setup the CRS
-                let crs = tbte
-                    .setup_crs(batch_scale, secret)
-                    .expect("CRS setup failed");
-                // Setup keys with the given number of parties and corruption threshold
-                let (sks, pk) = tbte
-                    .setup_keys(crs, corrupt_threshold, num_parties)
-                    .expect("Key setup failed");
+                            // group.bench_function(
+                            //     format!(
+                            //         "setup batch_scale={}, num_parties={}, corrupt_threshold={}",
+                            //         batch_scale, num_parties, corrupt_threshold
+                            //     ),
+                            //     |b| {
+                            //         b.iter(|| {
+                            //             // Setup the CRS
+                            //             let crs = tbte
+                            //                 .setup_crs(batch_scale, secret)
+                            //                 .expect("CRS setup failed");
+                            //             // Setup keys with the given number of parties and corruption threshold
+                            //             let (sks, pk) = tbte
+                            //                 .setup_keys(crs, corrupt_threshold, num_parties)
+                            //                 .expect("Key setup failed");
 
-                // Consume the keys to prevent optimizations
-                black_box(sks);
-                black_box(pk);
-            });
-        },
-    );
+    //             // Consume the keys to prevent optimizations
+    //             black_box(sks);
+    //             black_box(pk);
+    //         });
+    //     },
+    // );
     let crs = tbte
         .setup_crs(batch_scale, secret)
         .expect("CRS setup failed");
@@ -160,7 +162,9 @@ fn benchmark_kzg_tbte(
 
     // Generate random plaintexts
     let mut rng = thread_rng();
-    let plaintexts: Vec<bool> = (0..batch_size).map(|_| rng.gen::<bool>()).collect();
+    let plaintexts: Vec<Vec<u8>> = (0..batch_size)
+        .map(|_| rng.gen::<[u8; 32]>().to_vec())
+        .collect();
     // Epoch ID
     let eid = 1;
 
@@ -261,6 +265,6 @@ fn benchmark_kzg_tbte(
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = benchmark_kzg_tbte_1024_9_3, benchmark_kzg_tbte_2048_9_3, benchmark_kzg_tbte_4096_9_3, benchmark_kzg_tbte_8192_9_3, benchmark_kzg_tbte_16384_9_3, benchmark_kzg_tbte_32768_9_3, benchmark_kzg_tbte_65536_9_3, benchmark_kzg_tbte_131072_9_3, benchmark_kzg_tbte_262144_9_3, benchmark_kzg_tbte_524288_9_3, benchmark_kzg_tbte_1048576_9_3, benchmark_kzg_tbte_1024_99_33, benchmark_kzg_tbte_2048_99_33, benchmark_kzg_tbte_4096_99_33, benchmark_kzg_tbte_8192_99_33, benchmark_kzg_tbte_16384_99_33, benchmark_kzg_tbte_32768_99_33, benchmark_kzg_tbte_65536_99_33, benchmark_kzg_tbte_131072_99_33, benchmark_kzg_tbte_262144_99_33, benchmark_kzg_tbte_524288_99_33, benchmark_kzg_tbte_1048576_99_33
+    targets = benchmark_kzg_tbte_10_9_3, benchmark_kzg_tbte_10_99_33, benchmark_kzg_tbte_11_9_3, benchmark_kzg_tbte_11_99_33, benchmark_kzg_tbte_12_9_3, benchmark_kzg_tbte_12_99_33, benchmark_kzg_tbte_13_9_3, benchmark_kzg_tbte_13_99_33, benchmark_kzg_tbte_14_9_3, benchmark_kzg_tbte_14_99_33, benchmark_kzg_tbte_15_9_3, benchmark_kzg_tbte_15_99_33, benchmark_kzg_tbte_16_9_3, benchmark_kzg_tbte_16_99_33, benchmark_kzg_tbte_17_9_3, benchmark_kzg_tbte_17_99_33, benchmark_kzg_tbte_18_9_3, benchmark_kzg_tbte_18_99_33, benchmark_kzg_tbte_19_9_3, benchmark_kzg_tbte_19_99_33, benchmark_kzg_tbte_20_9_3, benchmark_kzg_tbte_20_99_33
 }
 criterion_main!(benches);

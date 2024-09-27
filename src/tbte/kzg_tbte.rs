@@ -11,6 +11,7 @@ use kzg::{
     G1, G2,
 };
 use kzg_settings::FsKZGSettings;
+use rand::rngs::OsRng;
 use rayon::prelude::*;
 use rust_kzg_blst::types::{fr::*, g1::*, g2::*, poly::*, *};
 use rust_kzg_blst::{consts::*, eip_4844::*, utils::*};
@@ -64,38 +65,40 @@ impl From<Vec<u8>> for KZGTag {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct KZGCt {
+pub struct KZGCt<S: SymEncScheme> {
     eid: u64,
     idx: u64,
     tag: KZGTag,
     s: FsG2,
     u: FsG2,
-    k: blst_fp12,
+    ct_m: S::Ct,
 }
 
-impl KZGCt {
+impl<S: SymEncScheme> KZGCt<S> {
     pub fn data_size(&self) -> u64 {
         let tag_size = self.tag.0.to_bytes().len() as u64;
         let s_size = self.s.to_bytes().len() as u64;
         let u_size = self.u.to_bytes().len() as u64;
-        let k_size = std::mem::size_of::<blst_fp12>() as u64;
-        8 + 8 + tag_size + s_size + u_size + k_size
+        let ct_m_size = S::ct_size(&self.ct_m) as u64;
+        8 + 8 + tag_size + s_size + u_size + ct_m_size
     }
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct KZGTbteScheme {
+pub struct KZGTbteScheme<H: HasherFp12ToBytes, S: SymEncScheme> {
     dst: Vec<u8>,
+    hasher: H,
+    sym_enc: S,
 }
 
-impl TbteScheme for KZGTbteScheme {
+impl<H: HasherFp12ToBytes, S: SymEncScheme> TbteScheme for KZGTbteScheme<H, S> {
     type CRS = FsKZGSettings;
     type SecretKey = (u64, FsFr);
     type PublicKey = KZGPublicKey;
     type EpochId = u64;
     type Tag = KZGTag;
-    type Plaintext = bool;
-    type Ct = KZGCt;
+    type Plaintext = Vec<u8>;
+    type Ct = KZGCt<S>;
     type Digest = FsG1;
     type PartialDec = (u64, FsG1);
 
@@ -154,19 +157,17 @@ impl TbteScheme for KZGTbteScheme {
             .mul(&s);
         let eid_rand = self.compute_eid_rand(eid);
         let k_g1 = G1_GENERATOR.mul(&tag.0).add(&eid_rand).mul(&s);
-        let m_g1 = if *plaintext {
-            G1_GENERATOR
-        } else {
-            FsG1::zero()
-        };
-        let k = pairing(&[k_g1, m_g1], &[pk.pk0, G2_GENERATOR])?;
+        let k = pairing(&[k_g1], &[pk.pk0])?;
+        let key = self.hasher.hash(&k)?;
+        let mut rng = OsRng;
+        let ct_m = self.sym_enc.enc(&key, plaintext, &mut rng)?;
         Ok(KZGCt {
             eid: *eid,
             idx: index,
             tag: tag.clone(),
             s: G2_GENERATOR.mul(&s),
             u,
-            k,
+            ct_m,
         })
     }
 
@@ -228,21 +229,20 @@ impl TbteScheme for KZGTbteScheme {
                 let (opening, _) =
                     compute_kzg_proof_rust_generic_len(&tags_vec, &roots_of_unity[idx], crs)
                         .map_err(|e| Error::OpeningError(idx as u64, e.to_string()))?;
-                let pairinged = pairing(
-                    &[FsG1::zero().sub(&pd.clone()), FsG1::zero().sub(&opening)],
-                    &[ct.s, ct.u],
-                )?;
-                let plaintext = unsafe {
-                    let ret = Box::new(blst_fp12 {
-                        fp6: [blst_fp6::default(); 2],
-                    });
-                    let ret_ptr = Box::into_raw(ret);
-                    blst_fp12_mul(ret_ptr, &ct.k, &pairinged);
-                    // g^0=1, thus the plaintext is false if the result is 1
-                    let is_false = blst_fp12_is_one(ret_ptr as *const blst_fp12);
-                    let _ = Box::from_raw(ret_ptr);
-                    !is_false
-                };
+                let pairinged = pairing(&[pd.clone(), opening], &[ct.s, ct.u])?;
+                let key = self.hasher.hash(&pairinged)?;
+                let plaintext = self.sym_enc.dec(&key, &ct.ct_m)?;
+                // let plaintext = unsafe {
+                //     let ret = Box::new(blst_fp12 {
+                //         fp6: [blst_fp6::default(); 2],
+                //     });
+                //     let ret_ptr = Box::into_raw(ret);
+                //     blst_fp12_mul(ret_ptr, &ct.k, &pairinged);
+                //     // g^0=1, thus the plaintext is false if the result is 1
+                //     let is_false = blst_fp12_is_one(ret_ptr as *const blst_fp12);
+                //     let _ = Box::from_raw(ret_ptr);
+                //     !is_false
+                // };
                 Ok(plaintext)
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -250,9 +250,13 @@ impl TbteScheme for KZGTbteScheme {
     }
 }
 
-impl KZGTbteScheme {
-    pub fn new(dst: Vec<u8>) -> Self {
-        Self { dst }
+impl<H: HasherFp12ToBytes, S: SymEncScheme> KZGTbteScheme<H, S> {
+    pub fn new(dst: Vec<u8>, hasher: H, sym_enc: S) -> Self {
+        Self {
+            dst,
+            hasher,
+            sym_enc,
+        }
     }
 
     pub fn compute_eid_rand(&self, eid: &<Self as TbteScheme>::EpochId) -> FsG1 {
@@ -283,23 +287,29 @@ mod test {
     use rand::{self, thread_rng};
 
     #[test]
-    fn test_kzg_tbte_t1_n3_b4096() {
-        let tbte = KZGTbteScheme::new(b"dst".to_vec());
-        let crs = tbte.load_crs_from_filepath("trusted_setup.txt").unwrap();
+    fn test_kzg_tbte_t1_n3_b32() {
+        let hasher = Sha256HasherFp12ToBytes::new();
+        let sym_enc = ChaCha20EncScheme::new();
+        let tbte = KZGTbteScheme::new(b"dst".to_vec(), hasher, sym_enc);
+        let mut rng = thread_rng();
+        let secret = rng.gen::<[u8; 32]>();
+        let crs = tbte.setup_crs(5, secret).unwrap();
         let (sks, pk) = tbte.setup_keys(crs, 1, 3).unwrap();
         let eid = 1;
         let mut tags = vec![];
-        for _ in 0..FIELD_ELEMENTS_PER_BLOB {
+        for _ in 0..32 {
             tags.push(KZGTag(FsFr::rand()));
         }
-        let mut rng = thread_rng();
-        let plaintexts = tags.iter().map(|_| rng.gen::<bool>()).collect_vec();
+        let plaintexts = tags
+            .iter()
+            .map(|_| rng.gen::<[u8; 1]>().to_vec())
+            .collect_vec();
         let enc_timer = start_timer!(|| "enc");
         let cts = tbte
             .enc_batch(
                 &pk,
                 &eid,
-                &(0u64..FIELD_ELEMENTS_PER_BLOB as u64).collect_vec(),
+                &(0u64..32 as u64).collect_vec(),
                 &tags,
                 &plaintexts,
             )

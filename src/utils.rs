@@ -3,7 +3,12 @@ use blst::{
     blst_fp12, blst_hash_to_g1, blst_p1_affine, blst_p1_cneg, blst_p1_to_affine, blst_p2_affine,
     blst_p2_to_affine, Pairing,
 };
+use chacha20::{
+    cipher::{KeyIvInit, StreamCipher},
+    ChaCha20,
+};
 use kzg::Fr;
+use rand::Rng;
 use rust_kzg_blst::types::{fr::*, g1::*, g2::*, *};
 use sha2::{Digest, Sha256};
 
@@ -48,29 +53,63 @@ pub fn lagrange_basises(domain: &[FsFr], target: &FsFr) -> Vec<FsFr> {
     out
 }
 
-// pub trait HasherFp12ToBytes: Send + Sync {
-//     fn hash(&self, input: &blst_fp12) -> Result<Vec<u8>, Error>;
-// }
+pub trait HasherFp12ToBytes: Send + Sync {
+    fn hash(&self, input: &blst_fp12) -> Result<[u8; 32], Error>;
+}
 
-// #[derive(Debug, Clone, Default)]
-// pub struct Sha256HasherFp12ToBytes;
+#[derive(Debug, Clone, Default)]
+pub struct Sha256HasherFp12ToBytes;
 
-// impl HasherFp12ToBytes for Sha256HasherFp12ToBytes {
-//     fn hash(&self, input: &blst_fp12) -> Result<Vec<u8>, Error> {
-//         Ok(Sha256::digest(&input.to_bendian()).to_vec())
-//     }
-// }
+impl HasherFp12ToBytes for Sha256HasherFp12ToBytes {
+    fn hash(&self, input: &blst_fp12) -> Result<[u8; 32], Error> {
+        Ok(Sha256::digest(&input.to_bendian()).into())
+    }
+}
 
-// impl Sha256HasherFp12ToBytes {
-//     pub fn new() -> Self {
-//         Self::default()
-//     }
-// }
+impl Sha256HasherFp12ToBytes {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
-// pub trait SymEncScheme: Sync {
-//     fn enc(&self, key: &[u8], msg: &[u8]) -> Result<Vec<u8>, Error>;
-//     fn dec(&self, key: &[u8], ct: &[u8]) -> Result<Vec<u8>, Error>;
-// }
+pub trait SymEncScheme: Send + Sync {
+    type Ct: Send + Sync;
+    fn enc<R: Rng>(&self, key: &[u8], msg: &[u8], rng: &mut R) -> Result<Self::Ct, Error>;
+    fn dec(&self, key: &[u8], ct: &Self::Ct) -> Result<Vec<u8>, Error>;
+    fn ct_size(ct: &Self::Ct) -> u64;
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ChaCha20EncScheme;
+
+impl SymEncScheme for ChaCha20EncScheme {
+    type Ct = (Vec<u8>, [u8; 12]);
+    fn enc<R: Rng>(&self, key: &[u8], msg: &[u8], rng: &mut R) -> Result<Self::Ct, Error> {
+        let nonce = rng.gen::<[u8; 12]>();
+        let mut cipher = ChaCha20::new(key.into(), &nonce.into());
+        let mut buffer = msg.to_vec();
+        cipher.apply_keystream(&mut buffer);
+        Ok((buffer.to_vec(), nonce))
+    }
+
+    fn dec(&self, key: &[u8], ct: &Self::Ct) -> Result<Vec<u8>, Error> {
+        let (enc, nonce) = ct;
+        let mut buffer = enc.to_vec();
+        let mut cipher = ChaCha20::new(key.into(), nonce.into());
+        cipher.apply_keystream(&mut buffer);
+        Ok(buffer)
+    }
+
+    fn ct_size(ct: &Self::Ct) -> u64 {
+        (ct.0.len() + ct.1.len()) as u64
+    }
+}
+
+impl ChaCha20EncScheme {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 // #[derive(Debug, Clone, Default)]
 // pub struct OneTimePadScheme;
