@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-kzg = { version = "0.1.0", git = "https://github.com/SoraSuegami/rust-kzg.git" }
-rust-kzg-blst = { version = "0.1.0", git = "https://github.com/SoraSuegami/rust-kzg.git" }
-# kzg = { version = "0.1.0", path = "/Users/suegamisora/codes/rust-kzg/kzg" }
-# rust-kzg-blst = { version = "0.1.0", path = "/Users/suegamisora/codes/rust-kzg/blst" }
+kzg = { version = "0.1.0", path = "../Rust KZG 1DE3/kzg" }
+rust-kzg-blst = { version = "0.1.0", path = "../Rust KZG 1DE3/blst" }
 thiserror = "1.0.61"
 blst = "0.3.12"
 itertools = "0.13.0"
