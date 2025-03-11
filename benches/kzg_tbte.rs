@@ -13,6 +13,10 @@ use TBTE::*;
 // const NUM_PARTIES: u64 = 100;
 // const CORRUPT_THRESHOLD: u64 = 33;
 
+fn benchmark_kzg_tbte_small(c: &mut Criterion) {
+    benchmark_kzg_tbte(c, 1, 3, 1);
+}
+
 fn benchmark_kzg_tbte_10_9_3(c: &mut Criterion) {
     benchmark_kzg_tbte(c, 10, 9, 3);
 }
@@ -165,6 +169,11 @@ fn benchmark_kzg_tbte(
     let plaintexts: Vec<Vec<u8>> = (0..batch_size)
         .map(|_| rng.gen::<[u8; 32]>().to_vec())
         .collect();
+
+    for (i, pt) in plaintexts.iter().enumerate() {
+        println!("Original plaintext[{:?}]: {:?}", i, hex::encode(&pt));
+    }
+
     // Epoch ID
     let eid = 1;
 
@@ -181,6 +190,7 @@ fn benchmark_kzg_tbte(
                     .enc(&pk, &eid, 0, &tags[0], &plaintexts[0])
                     .expect("Encryption failed");
                 // Consume the ciphertexts to prevent optimizations
+
                 black_box(ct);
             });
         },
@@ -195,7 +205,9 @@ fn benchmark_kzg_tbte(
         )
         .expect("Encryption failed");
     println!("ct size: {:?}", cts[0].data_size());
-
+    for (i, ct) in cts.iter().enumerate() {
+        println!("Ciphertexts[{}]: {:?}", i, ct);
+    }
     // Digest Benchmark
     group.bench_function(
         format!(
@@ -248,8 +260,12 @@ fn benchmark_kzg_tbte(
             b.iter(|| {
                 // Perform combine step to recover plaintexts
                 let recovered = tbte
-                    .combine(&pk, &eid, &cts[0..1], &tags, &pds)
+                    .combine(&pk, &eid, &cts, &tags, &pds)
                     .expect("Combine step failed");
+                
+                for (i, r) in recovered.iter().enumerate() {
+                    println!("Recovered plaintext[{}]: {:?}", i, hex::encode(&r));
+                }
 
                 // Consume the recovered plaintexts to prevent optimizations
                 black_box(recovered);
@@ -265,6 +281,7 @@ fn benchmark_kzg_tbte(
 criterion_group! {
     name = benches;
     config = Criterion::default();
-    targets = benchmark_kzg_tbte_10_9_3, benchmark_kzg_tbte_10_99_33, benchmark_kzg_tbte_11_9_3, benchmark_kzg_tbte_11_99_33, benchmark_kzg_tbte_12_9_3, benchmark_kzg_tbte_12_99_33, benchmark_kzg_tbte_13_9_3, benchmark_kzg_tbte_13_99_33, benchmark_kzg_tbte_14_9_3, benchmark_kzg_tbte_14_99_33, benchmark_kzg_tbte_15_9_3, benchmark_kzg_tbte_15_99_33, benchmark_kzg_tbte_16_9_3, benchmark_kzg_tbte_16_99_33, benchmark_kzg_tbte_17_9_3, benchmark_kzg_tbte_17_99_33, benchmark_kzg_tbte_18_9_3, benchmark_kzg_tbte_18_99_33, benchmark_kzg_tbte_19_9_3, benchmark_kzg_tbte_19_99_33, benchmark_kzg_tbte_20_9_3, benchmark_kzg_tbte_20_99_33
+    // targets = benchmark_kzg_tbte_10_9_3, benchmark_kzg_tbte_10_99_33, benchmark_kzg_tbte_11_9_3, benchmark_kzg_tbte_11_99_33, benchmark_kzg_tbte_12_9_3, benchmark_kzg_tbte_12_99_33, benchmark_kzg_tbte_13_9_3, benchmark_kzg_tbte_13_99_33, benchmark_kzg_tbte_14_9_3, benchmark_kzg_tbte_14_99_33, benchmark_kzg_tbte_15_9_3, benchmark_kzg_tbte_15_99_33, benchmark_kzg_tbte_16_9_3, benchmark_kzg_tbte_16_99_33, benchmark_kzg_tbte_17_9_3, benchmark_kzg_tbte_17_99_33, benchmark_kzg_tbte_18_9_3, benchmark_kzg_tbte_18_99_33, benchmark_kzg_tbte_19_9_3, benchmark_kzg_tbte_19_99_33, benchmark_kzg_tbte_20_9_3, benchmark_kzg_tbte_20_99_33
+    targets = benchmark_kzg_tbte_small
 }
 criterion_main!(benches);
